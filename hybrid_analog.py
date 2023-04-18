@@ -456,8 +456,7 @@ class HybridAnalog():
         self.InitializeGlobalCBC(valsInitTuning)  
         valsBestTuning = self.RunGlobalTuning(valsInitTuning)
         # Save
-        self.CalculateGlobalCBC(valsBestTuning)
-        print("done")
+        return self.CalculateGlobalCBC(valsBestTuning)
 
     def SplitTuningResult(self, value):
         arrBits = [0] * 8
@@ -469,7 +468,8 @@ class HybridAnalog():
         return arrBits
 
     def CalculateGlobalCBC(self, valsData):
-        bitsCapGlobal = self.SplitTuningResult(valsData.getGCBCCap())
+        GCBCCap = valsData.getGCBCCap()
+        bitsCapGlobal = self.SplitTuningResult(GCBCCap)
         bitsOutScale = self.SplitTuningResult(valsData.GCBCOutScale)
         bitsInScale = self.SplitTuningResult(valsData.GCBCInScale)
         fGCBC = float((200 * bitsCapGlobal[6]) + (100 * bitsCapGlobal[5]) + (50 * bitsCapGlobal[4]) + (25 * bitsCapGlobal[3]) + (12.5 * bitsCapGlobal[2]) + (6.25 * bitsCapGlobal[1]) + (3.125 * bitsCapGlobal[0]))
@@ -482,7 +482,8 @@ class HybridAnalog():
         print("valsData.GCBCOutScale", valsData.GCBCOutScale)
         print("valsData.GCBCInScale", valsData.GCBCInScale)
         print("fGlobalEffective", fGlobalEffective)
-        return fGlobalEffective
+        data = {"cap": int(GCBCCap), "inscale": int(valsData.GCBCInScale), "effective": int(fGlobalEffective) }
+        return data
 
     def get_report(self, clear=True):
         if(clear):
@@ -516,15 +517,23 @@ class HybridAnalog():
         valsInitTuning.gcbcIdx = self.paraName.gcbcIdx
         valsInitTuning.setGCBCCap(self._sc[self.paraName.CapGlobal][ valsInitTuning.gcbcIdx])
         valsInitTuning.GCBCInScale = self._sc[self.paraName.GCBCInScale]
-        self.CalculateGlobalCBC(valsInitTuning)
+        x = self.CalculateGlobalCBC(valsInitTuning)
+        
+        self.paraName = HybridAnalogParamVariables(self.handle, False)
+        valsInitTuning.gcbcIdx = self.paraName.gcbcIdx
+        valsInitTuning.setGCBCCap(self._sc[self.paraName.CapGlobal][ valsInitTuning.gcbcIdx])
+        valsInitTuning.GCBCInScale = self._sc[self.paraName.GCBCInScale]
+        y = self.CalculateGlobalCBC(valsInitTuning)
+        return x, y
 
 
-    def tuning(self):
+    def run(self):
         self.beforeTuning()
-        self.DoGlobalTuning()
+        x = self.DoGlobalTuning()
 
         self.onX = False
         self.paraName = HybridAnalogParamVariables(self.handle, False)
-        self.DoGlobalTuning()
+        y = self.DoGlobalTuning()
 
-        return self._sc["saturationLevel"]
+        return x,y
+
