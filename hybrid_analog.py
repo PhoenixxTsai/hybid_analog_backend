@@ -4,7 +4,7 @@ import sys
 import json
 
 REPORT_ID = 0x13
-marginHybridAnalogADC = 1000
+
 
 def update_static_config(handle, config, config_to_set, bWrite=False):
     try:
@@ -119,7 +119,9 @@ class HybridAnalog():
         self._dc = self.handle.getDynamicConfig()
         self.onX = True
         self.paraName = HybridAnalogParamVariables(self.handle, self.onX)
+        self.progress = 0
 
+        self.marginHybridAnalogADC = 1000
         self._reports = []
         self._count = 1
 
@@ -195,7 +197,7 @@ class HybridAnalog():
         return score
 
     def GetTuningLimits(self):
-        nMarginADC = marginHybridAnalogADC
+        nMarginADC = self.marginHybridAnalogADC
         nDataMax = self._nGlobalSignalLimitMax - nMarginADC;
         nDataMin = 0 + nMarginADC;
         return nDataMax, nDataMin
@@ -432,23 +434,6 @@ class HybridAnalog():
         self.ConfirmGlobalCBC(valsTuning)
         return valsTuning
 
-    #phoenix
-    def collect(self, count):
-        self._count = count
-        self.handle.reset()
-        self.handle.disableReport(17)
-        self.handle.enableReport(18)
-
-        for x in range(count):
-            report = self.handle.getReport()
-            if report[0] == 'raw':
-                report = report[1]['image']
-                self._reports.append(report)
-                print(json.dumps({"progress": x}))
-
-        self.handle.disableReport(18)
-        self.handle.enableReport(17)
-
     def DoGlobalTuning(self):
         valsBestTuning  = HybridAnalogParamValues()
         valsInitTuning = HybridAnalogParamValues()
@@ -479,6 +464,7 @@ class HybridAnalog():
         fGlobalEffective = (fGCBC * fGainGCBC);
 
         print("fGCBC", fGCBC )
+                                 
         print("valsData.GCBCOutScale", valsData.GCBCOutScale)
         print("valsData.GCBCInScale", valsData.GCBCInScale)
         print("fGlobalEffective", fGlobalEffective)
@@ -488,7 +474,7 @@ class HybridAnalog():
     def get_report(self, clear=True):
         if(clear):
             self._reports = []
-        self.handle.enableReport(REPORT_ID)
+        #self.handle.enableReport(REPORT_ID)
         for i in range(5):
             try:
                 report = self.handle.getReport()
@@ -502,12 +488,12 @@ class HybridAnalog():
             except:
                 pass
             raise Exception('cannot get valid report')
-        self.handle.disableReport(REPORT_ID)
+        #self.handle.disableReport(REPORT_ID)
     
     def beforeTuning(self):
         self.handle.disableReport(0x11)
         self.handle.disableReport(0x12)
-        self.handle.disableReport(0x13)
+        self.handle.enableReport(0x13)
         self._dc["noLowPower"] = 1
         self._dc["disableNoiseMitigation"] = 1
         self._dc["requestedNoiseMode"] = 5   
@@ -527,13 +513,17 @@ class HybridAnalog():
         return x, y
 
 
-    def run(self):
-        self.beforeTuning()
+    def run(self, setting):
+        self.marginHybridAnalogADC = setting
+        #self.beforeTuning()
+        self.handle.enableReport(REPORT_ID)
         x = self.DoGlobalTuning()
+        print(json.dumps({"state": "run", "progress": self.progress}))
 
         self.onX = False
         self.paraName = HybridAnalogParamVariables(self.handle, False)
         y = self.DoGlobalTuning()
-
+        #self.handle.disableReport(REPORT_ID)
+        print(json.dumps({"state": "run", "progress": 100}))
         return x,y
 
