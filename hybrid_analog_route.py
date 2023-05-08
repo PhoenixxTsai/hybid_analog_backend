@@ -21,6 +21,8 @@ class HybridAnalogRoute():
             return HybridAnalogRoute.run(marginHybridAnalogADC)
         elif task == "getSetting":
             return HybridAnalogRoute.currentSetting()
+        elif task == "getAdcRange":
+            return HybridAnalogRoute.getADCRange()
         elif task == "terminate":
             TutorThread.terminate()
             return {"state": "done"}
@@ -30,9 +32,18 @@ class HybridAnalogRoute():
     def run(params):
         tc = TouchcommManager().getInstance()
         h = HybridAnalog(tc)
-        #TutorThread.start(h.run, args=(params, ))
-        ret = h.run(params)
-        return {"x":ret[0], "y":ret[1]}
+        
+        TutorThread.register_event(HybridAnalogRoute.tune_callback)
+        TutorThread.start(h.run, args=(params, ))
+        #ret = h.run(params)
+        #return {"x":ret[0], "y":ret[1]}
+        return 
+
+    def tune_callback(data):
+        print("callback")
+        EventQueue().push({"state": "run", "data": data})
+        EventQueue().push({"state":"run", "progress":100})
+        EventQueue().close()
 
     def currentSetting():
         tc = TouchcommManager().getInstance()
@@ -40,3 +51,10 @@ class HybridAnalogRoute():
         ret = h.beforeTuning()
         print(ret[0],ret[1])
         return {"x":ret[0], "y":ret[1]}
+
+    def getADCRange():
+        tc = TouchcommManager().getInstance()
+        h = HybridAnalog(tc)
+        ret = h.getADCRange()
+        print(ret)
+        return ret
