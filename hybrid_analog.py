@@ -4,7 +4,7 @@ import sys
 import json
 
 REPORT_ID = 0x13
-
+GLOBALCAP_LENGTH = 5
 
 def update_static_config(handle, config, config_to_set, bWrite=False):
     try:
@@ -71,9 +71,8 @@ class HybridAnalogParamVariables():
 
 class HybridAnalogParamValues():
     def __init__(self, val=None):
-        self.GLOBALCAP_LENGTH = 5
         self.OUTSCALE_DEFAULT = 31
-        self.CapGlobal = np.empty(self.GLOBALCAP_LENGTH, dtype=int) 
+        self.CapGlobal = np.empty(GLOBALCAP_LENGTH, dtype=int) 
         
         self.GCBCOutScale = self.OUTSCALE_DEFAULT
         self.GCBCInScale = 0
@@ -120,16 +119,17 @@ class HybridAnalog():
         self.onX = True
         self.paraName = HybridAnalogParamVariables(self.handle, self.onX)
         self.progress = 0
-
+        self.config = {}
         self.marginHybridAnalogADC = 1000
         self._reports = []
-        self._count = 1
+        self.configCapGlobal = self._sc[self.paraName.CapGlobal]
 
     def set_dynamic_config(self):
         self.handle.setDynamicConfig(self._dc)   
 
     def InitializeGlobalCBC(self, valsData): 
         print("InitializeGlobalCBC")
+        
         valsData.gcbcIdx = self.paraName.gcbcIdx
         valsData.setGCBCCap(self._nGlobalCapacitanceMaxCBC)
         valsData.GCBCInScale = self._nGlobalCapacitanceInScaleInit
@@ -238,6 +238,9 @@ class HybridAnalog():
 
     def SearchBestGlobalCBC(self, valsData):
         print("SearchBestGlobalCBC")
+        progressMax = 50
+        currProgress = 0
+        interval = 5
         valsScore = HybridAnalogParamValues(valsData)
 
         valsScore.setGCBCCap(self._nGlobalCapacitanceMaxCBC)
@@ -258,6 +261,10 @@ class HybridAnalog():
             print("valsScore.getGCBCCap() ", valsScore.getGCBCCap())
             valsScore.setGCBCCap(min(valsScore.getGCBCCap(), self._nGlobalCapacitanceMaxCBC))
             print("valsScore.CapStep " , int(valsScore.CapStep))
+            currProgress += interval
+            if(currProgress < progressMax):
+                self.progress += interval
+                print(json.dumps({"state": "run", "progress": self.progress}))
             if (int(valsScore.CapStep) == 0):
                 print("break")
                 break
@@ -438,6 +445,7 @@ class HybridAnalog():
 
         self.InitializeGlobalCBC(valsInitTuning)  
         valsBestTuning = self.RunGlobalTuning(valsInitTuning)
+
         return self.CalculateGlobalCBC(valsBestTuning)
 
     def SplitTuningResult(self, value):
@@ -466,6 +474,12 @@ class HybridAnalog():
         print("valsData.GCBCInScale", valsData.GCBCInScale)
         print("fGlobalEffective", fGlobalEffective)
         data = {"cap": int(GCBCCap), "inscale": int(valsData.GCBCInScale), "effective": int(fGlobalEffective) }
+        
+        para = self.paraName
+        self.config[para.CapGlobal] = self.configCapGlobal
+        self.config[para.GCBCCap] = int(GCBCCap)
+        self.config[para.GCBCInScale] = int(valsData.GCBCInScale)
+
         return data
 
     def get_report(self, clear=True):
@@ -513,16 +527,17 @@ class HybridAnalog():
     def run(self, setting):
         self.marginHybridAnalogADC = setting
         self.handle.enableReport(REPORT_ID)
+        
         x = self.DoGlobalTuning()
         self.progress = 50
         print(json.dumps({"state": "run", "progress": self.progress}))
 
+
         self.onX = False
         self.paraName = HybridAnalogParamVariables(self.handle, False)
         y = self.DoGlobalTuning()
-        #self.handle.disableReport(REPORT_ID)
-       
-        return {"x":x,"y":y}
+
+        return {"x":x,"y":y, "config":self.config }
 
     def getADCRange(self):
 
