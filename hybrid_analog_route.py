@@ -35,12 +35,9 @@ class HybridAnalogRoute():
         
         TutorThread.register_event(HybridAnalogRoute.tune_callback)
         TutorThread.start(h.run, args=(params, ))
-        #ret = h.run(params)
-        #return {"x":ret[0], "y":ret[1]}
         return 
 
     def tune_callback(data):
-        print("callback")
         EventQueue().push({"state": "run", "data": data})
         EventQueue().push({"state":"run", "progress":100})
         EventQueue().close()

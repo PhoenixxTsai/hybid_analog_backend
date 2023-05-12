@@ -10,7 +10,6 @@ def update_static_config(handle, config, config_to_set, bWrite=False):
     try:
         for key in config_to_set:
             config_value = config_to_set[key]
-            #print(key, '->', config_value)
             if isinstance(config_value, list):
                 for idx, x in enumerate(config_value):
                     config[key][idx] = int(x)
@@ -26,8 +25,6 @@ def update_static_config(handle, config, config_to_set, bWrite=False):
 class HybridAnalogParamVariables():
     def __init__(self, handle, onX=True):
         self.handle = handle
-
-
         self.SFTYPE_ABSRX = np.array(['subFrameId_t','SFTYPE_ABSRX'])
         self.SFTYPE_ABSTX = np.array(['subFrameId_t','SFTYPE_ABSTX'])
 
@@ -93,7 +90,6 @@ class HybridAnalogParamValues():
             self.CapGlobal = val.CapGlobal
             self.setGCBCCap(val.getGCBCCap())
             self.GCBCInScale = val.GCBCInScale
-            print("isinstance GCBCCap ", self.getGCBCCap(), self.gcbcIdx)
 
     def getGCBCCap(self):
         return self.CapGlobal[self.gcbcIdx]
@@ -128,16 +124,13 @@ class HybridAnalog():
         self.handle.setDynamicConfig(self._dc)   
 
     def InitializeGlobalCBC(self, valsData): 
-        print("InitializeGlobalCBC")
         
         valsData.gcbcIdx = self.paraName.gcbcIdx
         valsData.setGCBCCap(self._nGlobalCapacitanceMaxCBC)
         valsData.GCBCInScale = self._nGlobalCapacitanceInScaleInit
         valsData.GCBCOutScale = self._nGlobalCapacitanceOutScaleInit
         #check parameter are exist
-        print("CapGlobal arr index", valsData.CapGlobal,  valsData.gcbcIdx)
         self.set(valsData, False)
-        print("CapGlobal arr index", valsData.CapGlobal,  valsData.gcbcIdx)
         #enable lcbc servo (servo on)
         self._sc = update_static_config(self.handle, self._sc, {self._strGlobalVarEnableScan: 1})
         #Keys Specific
@@ -183,17 +176,14 @@ class HybridAnalog():
         return True
 
     def ScoreTuningValue(self):
-        print("ScoreTuningValue")
         if(len(self._reports) > 0):
             data = self._reports[0]
         else:
-            print("no data")
             raise Exception("'cannot get valid report")
 
         fDataMax = np.amax(data) / self._nGlobalSignalScoreAdjustment
         fDataMin = np.amin(data) / self._nGlobalSignalScoreAdjustment
         score = max(abs(fDataMax - self._nGlobalSignalScoreDeviation), abs(fDataMin - self._nGlobalSignalScoreDeviation))
-        print("SCORE ", score)
         return score
 
     def GetTuningLimits(self):
@@ -237,14 +227,12 @@ class HybridAnalog():
         return False
 
     def SearchBestGlobalCBC(self, valsData):
-        print("SearchBestGlobalCBC")
         progressMax = 50
         currProgress = 0
         interval = 5
         valsScore = HybridAnalogParamValues(valsData)
 
         valsScore.setGCBCCap(self._nGlobalCapacitanceMaxCBC)
-        print("valueScore ", valsScore.getGCBCCap())
         valsScore.CapStep = (self._nGlobalCapacitanceMaxCBC + 1) / 2
         valsScore.CapBest = valsScore.CapScore = self._nGlobalSignalScoreDeviation + 1
         while(True):
@@ -258,9 +246,7 @@ class HybridAnalog():
                 valsScore.setGCBCCap(valsScore.getGCBCCap() + valsScore.CapStep)
             else:
                 valsScore.setGCBCCap(valsScore.getGCBCCap() - valsScore.CapStep)
-            print("valsScore.getGCBCCap() ", valsScore.getGCBCCap())
             valsScore.setGCBCCap(min(valsScore.getGCBCCap(), self._nGlobalCapacitanceMaxCBC))
-            print("valsScore.CapStep " , int(valsScore.CapStep))
             currProgress += interval
             if(currProgress < progressMax):
                 self.progress += interval
@@ -272,13 +258,11 @@ class HybridAnalog():
         valsData = valsBest
 
     def RestoreGlobalCBC(self):
-        print("RestoreGlobalCBC")
         self._sc = update_static_config(self.handle, self._sc, {self.paraName.CBCDriverEnable: 1})
         self._sc = update_static_config(self.handle, self._sc, {self._strGlobalVarEnableScan: 1}, True)
 
 
     def ConvertGlobalCBC(self,nDataChannel, nDataElectrode):
-        print("ConvertGlobalCBC")
         nBaseElectrode = 0
         nBaseChannel = 0
         nDataFound = 0
@@ -312,11 +296,9 @@ class HybridAnalog():
                     nDataFound += 1
             
         nDataChannel = (nDataElectrode - nBaseElectrode) * 2 + nBaseChannel
-        print("nDataChannel",nDataChannel)
         return (nDataFound == 1), nDataChannel
 
     def _CheckGlobalCBC(self, arr):
-        print("_CheckGlobalCBC")
         nDataMax = 0
         nDataMin = 0
         nDataMax, nDataMin = self.GetTuningLimits()
@@ -335,11 +317,6 @@ class HybridAnalog():
                     ret, nReportChannel = self.ConvertGlobalCBC(nReportChannel, imageTRxes[i])
                     if(ret):
                         listReportFail.append(nReportChannel)
-                    print("nReportChannel", nReportChannel)
-            if len(listReportFail) > 0:
-                print("listReportFail > 0")
-            print("arr", arr)
-            print("listReportFail",listReportFail)
             arr = listReportFail if (len(listReportFail) > 0) else None
             
             return False
@@ -380,7 +357,6 @@ class HybridAnalog():
         return True
 
     def CheckGlobalCBC(self, valsData):
-        print("CheckGlobalCBC")
         bDataValid = False
         bDataSuccess = (valsData.getGCBCCap() <= self._nGlobalCapacitanceMaxCBC)
         arrDataGains = self._arrGlobalCapGainsInitial
@@ -422,7 +398,6 @@ class HybridAnalog():
         return True
 
     def RunGlobalTuning(self, valsInitTuning):
-        print("RunGlobalTuning")
         p = self.paraName
         valsTuning = HybridAnalogParamValues(valsInitTuning)
         #self.ValidateGlobalCBC(valsTuning)
@@ -450,7 +425,6 @@ class HybridAnalog():
 
     def SplitTuningResult(self, value):
         arrBits = [0] * 8
-        print("value", value)
         for i in range(len(arrBits)):
             arrBits[i] = value & 0x01
             value = value >> 1
@@ -469,7 +443,6 @@ class HybridAnalog():
         fGlobalEffective = (fGCBC * fGainGCBC)
 
         print("fGCBC", fGCBC)
-                                 
         print("valsData.GCBCOutScale", valsData.GCBCOutScale)
         print("valsData.GCBCInScale", valsData.GCBCInScale)
         print("fGlobalEffective", fGlobalEffective)
@@ -532,15 +505,12 @@ class HybridAnalog():
         self.progress = 50
         print(json.dumps({"state": "run", "progress": self.progress}))
 
-
         self.onX = False
         self.paraName = HybridAnalogParamVariables(self.handle, False)
         y = self.DoGlobalTuning()
-
         return {"x":x,"y":y, "config":self.config }
 
     def getADCRange(self):
-
         self.handle.enableReport(REPORT_ID)
         for i in range(5):
             try:
